@@ -9,6 +9,7 @@ WIDTH, HEIGHT = 800, 600
 WHITE = (255, 255, 255)
 RED = (255, 0, 0)
 PLAYER_SIZE = 50
+SOCKET_URL = "ws://127.0.0.1:9001"
 
 
 @dataclass
@@ -25,7 +26,13 @@ class LocalGameState:
     others: dict[int, PlayerState] = field(default_factory=dict)
 
     def update_state(self, state_dict):
-        # {'self': {'id': 7, 'pos_x': 390, 'pos_y': 190}, 'others': [{'id': 1, 'pos_x': 0.0, 'pos_y': 0.0}, {'id': 2, 'pos_x': 405, 'pos_y': 100}, {'id': 3, 'pos_x': 465, 'pos_y': 285}, {'id': 4, 'pos_x': 375, 'pos_y': 215}, {'id': 5, 'pos_x': 440, 'pos_y': 240}, {'id': 6, 'pos_x': 455, 'pos_y': 160}]}
+        # {
+        #     "self": {"id": 7, "pos_x": 390, "pos_y": 190},
+        #     "others": [
+        #         {"id": 1, "pos_x": 0.0, "pos_y": 0.0},
+        #         ...
+        #     ],
+        # }
         self.others = {}
         for other in state_dict.get("others", []):
             self.others[other["id"]] = PlayerState(
@@ -41,17 +48,20 @@ class GameClient:
         self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
         pygame.display.set_caption("Multiplayer Game")
         self.clock = pygame.time.Clock()
+        self.approx_fps: float = -1.0
 
         self.game_state = LocalGameState(
             PlayerState(
-                None, WIDTH // 2 - PLAYER_SIZE // 2, HEIGHT // 2 - PLAYER_SIZE // 2
+                None,
+                WIDTH // 2 - PLAYER_SIZE // 2,
+                HEIGHT // 2 - PLAYER_SIZE // 2,
             )
         )
         self.websocket = None
 
     async def connect(self):
         try:
-            self.websocket = await websockets.connect("ws://127.0.0.1:9001")
+            self.websocket = await websockets.connect(SOCKET_URL)
             print("Connected to server")
             await self.receive_initial_message()
         except Exception as e:
@@ -132,7 +142,22 @@ class GameClient:
                 ),
             )
 
+        self.draw_fps()
+
         pygame.display.flip()
+
+    def draw_fps(self):
+        font = pygame.font.Font("freesansbold.ttf", 32)
+        text_surface = font.render(
+            f"fps: {int(self.approx_fps)}",
+            True,
+            RED,
+            WHITE,
+        )
+        text_rect = text_surface.get_rect()
+        # set the text to the top right of the screen
+        text_rect.topright = (WIDTH, 0)
+        self.screen.blit(text_surface, text_rect)
 
     async def run(self):
         await self.connect()
@@ -141,8 +166,12 @@ class GameClient:
             running = self.handle_events()
             self.draw()
             await self.send_state()
-            # await self.receive_messages()
             self.clock.tick(60)
+
+            # update fps count
+            # ns between last 2 clock.tick
+            elapsed_ms = self.clock.get_time()
+            self.approx_fps = 1 / (elapsed_ms / 1e3)
 
         if self.websocket:
             await self.websocket.close()

@@ -12,6 +12,7 @@ from picows import (
     WSUpgradeRequest,
 )
 
+SOCKET_URL = "ws://127.0.0.1:9001"
 
 logger = logging.getLogger("game_server_main")
 formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -115,6 +116,10 @@ async def log_game_state(game_state: GameState):
         await asyncio.sleep(5)
 
 
+SOCKET_IP = "127.0.0.1"
+SOCKET_PORT = 9001
+
+
 async def main():
     # global game_state
     game_state = GameState()
@@ -123,7 +128,11 @@ async def main():
         # Routing can be implemented here by analyzing request content
         return ServerClientListener(game_state)
 
-    server: asyncio.Server = await ws_create_server(listener_factory, "127.0.0.1", 9001)
+    server: asyncio.Server = await ws_create_server(
+        listener_factory,
+        SOCKET_IP,
+        SOCKET_PORT,
+    )
     for s in server.sockets:
         print(f"Server started on {s.getsockname()}")
 
