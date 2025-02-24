@@ -12,8 +12,6 @@ from picows import (
     WSUpgradeRequest,
 )
 
-SOCKET_URL = "ws://127.0.0.1:9001"
-
 logger = logging.getLogger("game_server_main")
 formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger.setLevel(logging.DEBUG)

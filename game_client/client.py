@@ -9,7 +9,8 @@ WIDTH, HEIGHT = 800, 600
 WHITE = (255, 255, 255)
 RED = (255, 0, 0)
 PLAYER_SIZE = 50
-SOCKET_URL = "ws://127.0.0.1:9001"
+# SOCKET_URL = "ws://127.0.0.1:9001"
+SOCKET_URL = "ws://192.168.4.168:9001"
 
 
 @dataclass
@@ -66,6 +67,7 @@ class GameClient:
             await self.receive_initial_message()
         except Exception as e:
             print(f"Error connecting to server: {e}")
+            raise
 
     async def receive_initial_message(self):
         try:
