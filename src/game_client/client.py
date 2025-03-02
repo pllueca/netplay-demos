@@ -9,10 +9,12 @@ from src.common.common_models import (
     PositionUpdateMessage,
     SocketMessagePlayerToServer,
 )
-from src.common.entity import PlayerEntity
+from src.common.entity import PlayerEntity, NPCEntity, Entity
+from src.common.world import GameState
 
 # Game constants
 WIDTH, HEIGHT = 800, 600
+NPC_SIZE = 400
 WHITE = (255, 255, 255)
 RED = (255, 0, 0)
 PLAYER_SIZE = 50
@@ -23,37 +25,50 @@ logger = logging.getLogger(__name__)
 
 
 class LocalGameState:
-    player: PlayerEntity
-    player_changed: bool
-    others: dict[int, PlayerEntity]
+    player_id: int
+    other_player_ids: set[int]
 
     def __init__(self, player_id: int, username: str):
+        self._state = GameState()
         self.player_id = player_id
-        self.player_changed = False
-        self.player = PlayerEntity(
-            id=player_id,
-            username=username,
-            pos_x=0,
-            pos_y=0,
-        )
 
-        self.others = {}
+        self._state.add_player(
+            PlayerEntity(
+                id=player_id,
+                username=username,
+                pos_x=0,
+                pos_y=0,
+            )
+        )
+        self.npc_ids = set()
+        self.other_player_ids = set()
 
     def update_state_other_player(self, position_update: PositionUpdateMessage):
-        if position_update.player_id not in self.others:
-            self.others[position_update.player_id] = PlayerEntity(
-                id=position_update.player_id, pos_x=0, pos_y=0.0
+        if position_update.player_id not in self.other_player_ids:
+            if position_update.player_id in self.entities:
+                raise ValueError("shpould not happen")
+            self.entities[position_update.player_id] = PlayerEntity(
+                id=position_update.player_id,
+                pos_x=0,
+                pos_y=0.0,
             )
-        self.others[position_update.player_id].pos_x = (
+            self.npc_ids.add(position_update.player_id)
+        self.entities[position_update.player_id].pos_x = (
             position_update.position_data.pos_x
         )
-        self.others[position_update.player_id].pos_y = (
+        self.entities[position_update.player_id].pos_y = (
             position_update.position_data.pos_y
         )
 
     def delete_player(self, player_id: int):
-        if player_id in self.others:
+        if player_id in self.other_player_ids:
             del self.others[player_id]
+        if player_id in self.entities:
+            del self.entities[player_id]
+
+    @property
+    def player(self) -> PlayerEntity:
+        return self.entities[self.player_id]
 
     @property
     def player_position_data(self) -> PositionData:
@@ -108,6 +123,8 @@ class GameClient:
 
     def update_state(self) -> None:
         """Update the game state, after processing keyboard events and socket messages"""
+
+        # update others
         while self.new_socket_messages:
             other_player_update = self.new_socket_messages.pop(0)
             match other_player_update.type:
@@ -119,6 +136,8 @@ class GameClient:
                     self.game_state.delete_player(other_player_update.data.player_id)
                 case _:
                     pass
+
+        # npcs logic
 
     async def send_state(self):
         """Broadcast updated player position to the server."""
@@ -159,19 +178,21 @@ class GameClient:
 
     def draw(self):
         self.screen.fill(WHITE)
+        player = self.game_state.entities[self.game_state.player_id]
         pygame.draw.rect(
             self.screen,
             RED,
             (
-                self.game_state.player.pos_x,
-                self.game_state.player.pos_y,
+                player.pos_x,
+                player.pos_y,
                 PLAYER_SIZE,
                 PLAYER_SIZE,
             ),
         )
 
         # # Draw other players
-        for other in self.game_state.others.values():
+        for other_player_id in self.game_state.other_player_ids:
+            other = self.game_state.entities[other_player_id]
             pygame.draw.rect(
                 self.screen,
                 (0, 0, 255),
@@ -183,6 +204,20 @@ class GameClient:
                 ),
             )
 
+        # draw npcs
+        for npc_id in self.game_state.npc_ids:
+            npc = self.game_state.entities[npc_id]
+            pygame.draw.rect(
+                self.screen,
+                (128, 128, 0),
+                (
+                    npc.pos_x,
+                    npc.pos_y,
+                    NPC_SIZE,
+                    NPC_SIZE,
+                ),
+            )
+
         self.draw_fps()
 
         pygame.display.flip()
@@ -190,7 +225,7 @@ class GameClient:
     def draw_fps(self):
         font = pygame.font.Font("freesansbold.ttf", 25)
         text_surface = font.render(
-            f"fps: {int(self.clock.get_fps())}\nothers: {len(self.game_state.others)}",
+            f"fps: {int(self.clock.get_fps())}\nothers: {len(self.game_state.other_player_ids)}",
             True,
             RED,
             WHITE,

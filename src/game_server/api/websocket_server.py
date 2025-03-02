@@ -9,13 +9,14 @@ from datetime import datetime
 from src.database.redis_db import RedisClient
 from src.database.sqlite_db import get_db_session
 from src.database.models import Player
+from src.common.entity import PlayerEntity
 from src.common.common_models import (
     SocketMessagePlayerToServer,
     PositionUpdateMessage,
     NewPlayerConnectedMessage,
     PlayerDisconectedMessage,
 )
-
+from src.common.world import GameState
 
 redis_client = RedisClient()
 
@@ -25,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 # Connected clients
 connected_clients: dict[int, WebSocketServerProtocol] = {}
+game_state = GameState()
 
 
 # Message handler
@@ -74,7 +76,9 @@ async def handle_message(websocket: WebSocketServerProtocol, player_id: int):
 
 
 # Authentication handler
-async def authenticate(websocket: WebSocketServerProtocol):
+async def authenticate(
+    websocket: WebSocketServerProtocol,
+) -> int | None:
     try:
         # Expect authentication message with player ID
         auth_message = await websocket.recv()
@@ -176,12 +180,15 @@ async def broadcast_to_others(sender_id: int, message: str):
 async def websocket_handler(websocket: WebSocketServerProtocol):
     player_id = await authenticate(websocket)
 
-    if player_id:
+    if player_id is not None:
+        # create player in the game state
+        game_state.add_player(PlayerEntity(id=player_id, pos_x=0, pos_y=0))
         await handle_message(websocket, player_id)
 
 
 # Create WebSocket server
 async def start_websocket_server(host: str, port: int):
+
     server = await websockets.serve(websocket_handler, host, port)
     logger.info(f"WebSocket server started on ws://{host}:{port}")
     return server

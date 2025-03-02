@@ -16,4 +16,4 @@ class PlayerEntity(CharacterEntity):
 
 
 class NPCEntity(CharacterEntity):
-    pass
+    type: str
