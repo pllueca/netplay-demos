@@ -67,6 +67,10 @@ class LocalGameState:
             del self.entities[player_id]
 
     @property
+    def entities(self) -> dict[int, Entity]:
+        return self._state.entities
+
+    @property
     def player(self) -> PlayerEntity:
         return self.entities[self.player_id]
 
