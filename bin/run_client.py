@@ -32,14 +32,18 @@ def get_player_id(player_name: str) -> int:
 async def main():
     args = parse_args()
 
+    print(
+        f"""urls:
+- api: {API_REMOTE_URL}
+- ws: {WS_REMOTE_URL}"""
+    )
+
     # get or create a player id
     try:
         player_id = get_player_id(args.player_name)
     except requests.exceptions.HTTPError as e:
         print(f"Could not contact the game server, error: {e}")
         sys.exit(1)
-
-    print(player_id)
 
     try:
         async with websockets.connect(WS_REMOTE_URL) as websocket:
@@ -87,5 +91,4 @@ async def main():
 
 
 if __name__ == "__main__":
-    print("foo")
     asyncio.run(main())

@@ -1,13 +1,9 @@
 import asyncio
-import json
 import logging
-from dataclasses import dataclass, field
 from typing import cast
 
 import pygame
-import websockets
 
-from config import WS_URL
 from src.common.common_models import (
     PositionData,
     PositionUpdateMessage,
@@ -48,12 +44,12 @@ class LocalGameState:
             self.others[position_update.player_id] = PlayerEntity(
                 id=position_update.player_id, pos_x=0, pos_y=0.0
             )
-        self.others[
-            position_update.player_id
-        ].pos_x = position_update.position_data.pos_x
-        self.others[
-            position_update.player_id
-        ].pos_y = position_update.position_data.pos_y
+        self.others[position_update.player_id].pos_x = (
+            position_update.position_data.pos_x
+        )
+        self.others[position_update.player_id].pos_y = (
+            position_update.position_data.pos_y
+        )
 
     def delete_player(self, player_id: int):
         if player_id in self.others:
