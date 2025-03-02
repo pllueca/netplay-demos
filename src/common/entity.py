@@ -12,7 +12,7 @@ class CharacterEntity(Entity, PositionComponent):
 
 
 class PlayerEntity(CharacterEntity, SerializePlayerJsonComponent):
-    player_id: str
+    name: str
 
 
 class NPCEntity(CharacterEntity):

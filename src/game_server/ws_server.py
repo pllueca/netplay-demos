@@ -13,7 +13,11 @@ from picows import (
 
 
 from src.common.entity import PlayerEntity
-from src.common.constants import SOCKET_IP, SOCKET_PORT, SOCKET_URL
+from src.database.redis_db import RedisClient
+from config import WS_HOST, WS_PORT
+
+
+redis_client = RedisClient()
 
 
 class GameState:
@@ -78,9 +82,11 @@ class ServerClientListener(WSListener):
         transport.send(WSMsgType.BINARY, str(new_player_id).encode("utf-8"))
 
         print(f"new connection, created player with id: {new_player_id}")
+        redis_client.add_player_to_online("..")
 
-    def on_ws_disconnected(transport: WSTransport):
+    def on_ws_disconnected(self, _transport: WSTransport):
         print("client disconnected")
+        redis_client.remove_player_from_online("..")
 
     def on_ws_frame(self, transport: WSTransport, frame: WSFrame):
         if frame.msg_type == WSMsgType.CLOSE:
@@ -103,10 +109,10 @@ async def main():
 
     server: asyncio.Server = await ws_create_server(
         listener_factory,
-        SOCKET_IP,
-        SOCKET_PORT,
+        WS_HOST,
+        WS_PORT,
     )
     for s in server.sockets:
-        print(f"Server started on {s.getsockname()}, url: {SOCKET_URL}")
+        print(f"Server started on {s.getsockname()}, url: ws://{WS_HOST}:{WS_PORT}")
 
     await server.serve_forever()

@@ -4,7 +4,7 @@ import pygame
 import json
 
 from src.common.entity import PlayerEntity
-from src.common.constants import SOCKET_URL
+from config import WS_URL
 
 # Game constants
 WIDTH, HEIGHT = 800, 600
@@ -14,7 +14,6 @@ PLAYER_SIZE = 50
 
 
 class LocalGameState:
-    player_id: str
     player: PlayerEntity
     player_changed: bool
     others: dict[int, PlayerEntity]
@@ -49,26 +48,19 @@ class LocalGameState:
         self.others = {}
 
 
-def get_player_id() -> str:
-    return "player"
-
-
 class GameClient:
-    def __init__(self):
+    def __init__(self, player_id: int):
         pygame.init()
         self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
         pygame.display.set_caption("Multiplayer Game")
         self.clock = pygame.time.Clock()
         self.approx_fps: float = -1.0
-
-        self.game_state = LocalGameState(
-            get_player_id(),
-        )
+        self.game_state = LocalGameState(player_id)
         self.websocket = None
 
     async def connect(self):
         try:
-            self.websocket = await websockets.connect(SOCKET_URL)
+            self.websocket = await websockets.connect(WS_URL)
             print("Connected to server")
             await self.receive_initial_message()
         except Exception as e:
