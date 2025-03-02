@@ -1,7 +1,6 @@
 import asyncio
-import logging
+
 import json
-from dataclasses import dataclass
 
 from picows import (
     ws_create_server,
@@ -12,41 +11,29 @@ from picows import (
     WSUpgradeRequest,
 )
 
-logger = logging.getLogger("game_server_main")
-formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-logger.setLevel(logging.DEBUG)
-logger.info("init")
 
-
-@dataclass
-class Player:
-    id: int
-    pos_x: float
-    pos_y: float
-
-    def __repr__(self) -> str:
-        return f"<Player id={self.id}, pos=({self.pos_x, self.pos_y})>"
-
-    def to_json(self):
-        return {"id": self.id, "pos_x": self.pos_x, "pos_y": self.pos_y}
+from src.common.entity import PlayerEntity
+from src.common.constants import SOCKET_IP, SOCKET_PORT, SOCKET_URL
 
 
 class GameState:
 
     def __init__(self):
         self.last_id = 0
-        self.players: dict[int, Player] = {}
+        self.players: dict[int, PlayerEntity] = {}
 
     def create_new_player(self) -> int:
         self.last_id += 1
-        player = Player(
-            self.last_id,
-            0.0,
-            0.0,
+        new_id = self.last_id
+
+        self.players[new_id] = PlayerEntity(
+            id=new_id,
+            player_id="",
+            pos_x=0.0,
+            pos_y=0.0,
         )
-        self.players[player.id] = player
-        print(f"created player with id {player.id}")
-        return player.id
+        print(f"created player with id {new_id}")
+        return new_id
 
     def update_player(self, id: int, pos_x: float, pos_y: float) -> None:
         if not self.player_exists(id):
@@ -90,6 +77,11 @@ class ServerClientListener(WSListener):
         new_player_id = self.game_state.create_new_player()
         transport.send(WSMsgType.BINARY, str(new_player_id).encode("utf-8"))
 
+        print(f"new connection, created player with id: {new_player_id}")
+
+    def on_ws_disconnected(transport: WSTransport):
+        print("client disconnected")
+
     def on_ws_frame(self, transport: WSTransport, frame: WSFrame):
         if frame.msg_type == WSMsgType.CLOSE:
             transport.send_close(frame.get_close_code(), frame.get_close_message())
@@ -97,25 +89,8 @@ class ServerClientListener(WSListener):
         else:
             msg = frame.get_payload_as_ascii_text()
             game_state = self.handle_player_update(msg)
+
             transport.send(frame.msg_type, json.dumps(game_state).encode("utf-8"))
-
-
-async def log_game_state(game_state: GameState):
-
-    logger_2 = logging.getLogger("game_server")
-    formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    )
-    logger_2.setLevel(logging.DEBUG)
-    logger_2.info("init server logging")
-    while True:
-        log_msg = game_state.log_state()
-        logger_2.info(log_msg)
-        await asyncio.sleep(5)
-
-
-SOCKET_IP = "127.0.0.1"
-SOCKET_PORT = 9001
 
 
 async def main():
@@ -132,12 +107,6 @@ async def main():
         SOCKET_PORT,
     )
     for s in server.sockets:
-        print(f"Server started on {s.getsockname()}")
+        print(f"Server started on {s.getsockname()}, url: {SOCKET_URL}")
 
-    print_task = asyncio.create_task(log_game_state(game_state))
     await server.serve_forever()
-    print_task.cancel()
-
-
-if __name__ == "__main__":
-    asyncio.run(main())

@@ -1,30 +1,23 @@
 from dataclasses import dataclass, field
-import pygame
-import asyncio
 import websockets
+import pygame
 import json
+
+from src.common.entity import PlayerEntity
+from src.common.constants import SOCKET_URL
 
 # Game constants
 WIDTH, HEIGHT = 800, 600
 WHITE = (255, 255, 255)
 RED = (255, 0, 0)
 PLAYER_SIZE = 50
-# SOCKET_URL = "ws://127.0.0.1:9001"
-SOCKET_URL = "ws://192.168.4.168:9001"
 
 
-@dataclass
-class PlayerState:
-    id: int
-    pos_x: float
-    pos_y: float
-    changed: bool = True
-
-
-@dataclass
 class LocalGameState:
-    player: PlayerState
-    others: dict[int, PlayerState] = field(default_factory=dict)
+    player_id: str
+    player: PlayerEntity
+    player_changed: bool
+    others: dict[int, PlayerEntity]
 
     def update_state(self, state_dict):
         # {
@@ -36,11 +29,28 @@ class LocalGameState:
         # }
         self.others = {}
         for other in state_dict.get("others", []):
-            self.others[other["id"]] = PlayerState(
-                other["id"],
-                other["pos_x"],
-                other["pos_y"],
+            self.others[other["id"]] = PlayerEntity(
+                id=other["id"],
+                player_id=other.get("player_id", "unknown"),
+                pos_x=other["pos_x"],
+                pos_y=other["pos_y"],
             )
+
+    def __init__(self, player_id):
+        self.player_id = player_id
+        self.player_changed = False
+        self.player = PlayerEntity(
+            id=0,
+            player_id=self.player_id,
+            pos_x=0,
+            pos_y=0,
+        )
+
+        self.others = {}
+
+
+def get_player_id() -> str:
+    return "player"
 
 
 class GameClient:
@@ -52,11 +62,7 @@ class GameClient:
         self.approx_fps: float = -1.0
 
         self.game_state = LocalGameState(
-            PlayerState(
-                None,
-                WIDTH // 2 - PLAYER_SIZE // 2,
-                HEIGHT // 2 - PLAYER_SIZE // 2,
-            )
+            get_player_id(),
         )
         self.websocket = None
 
@@ -86,6 +92,7 @@ class GameClient:
             try:
                 state = {
                     "id": self.game_state.player.id,
+                    "player_id": self.game_state.player_id,
                     "pos_x": self.game_state.player.pos_x,
                     "pos_y": self.game_state.player.pos_y,
                 }
@@ -103,19 +110,19 @@ class GameClient:
                 return False
 
         keys = pygame.key.get_pressed()
-        self.game_state.player.changed = False
+        self.game_state.player_changed = False
         if keys[pygame.K_LEFT]:
             self.game_state.player.pos_x -= 5
-            self.game_state.player.changed = True
+            self.game_state.player_changed = True
         if keys[pygame.K_RIGHT]:
             self.game_state.player.pos_x += 5
-            self.game_state.player.changed = True
+            self.game_state.player_changed = True
         if keys[pygame.K_UP]:
             self.game_state.player.pos_y -= 5
-            self.game_state.player.changed = True
+            self.game_state.player_changed = True
         if keys[pygame.K_DOWN]:
             self.game_state.player.pos_y += 5
-            self.game_state.player.changed = True
+            self.game_state.player_changed = True
         return True
 
     def draw(self):
@@ -178,12 +185,3 @@ class GameClient:
         if self.websocket:
             await self.websocket.close()
         pygame.quit()
-
-
-async def main():
-    game = GameClient()
-    await game.run()
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
