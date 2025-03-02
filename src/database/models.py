@@ -1,15 +1,15 @@
 from sqlalchemy import (
+    Boolean,
     Column,
+    DateTime,
+    ForeignKey,
     Integer,
     String,
-    DateTime,
-    Boolean,
-    ForeignKey,
     create_engine,
 )
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 
 from config import SQLITE_DB_URL
 

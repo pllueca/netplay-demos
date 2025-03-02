@@ -7,12 +7,10 @@ class PositionComponent:
 
 
 class SerializePlayerJsonComponent:
-
     def to_json_dict(self) -> dict:
         """subclasses should implement"""
         return {
             "id": self.id,
-            "player_id": self.player_id,
             "pos_x": self.pos_x,
             "pos_y": self.pos_y,
         }

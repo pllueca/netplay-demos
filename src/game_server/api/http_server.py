@@ -1,13 +1,14 @@
-from fastapi import FastAPI, HTTPException, Depends
+from datetime import datetime
+from typing import List, Optional
+
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from typing import List, Optional
-from datetime import datetime
 
-from database.sqlite_db import get_db_session
 from database.models import Player
 from database.redis_db import RedisClient
+from database.sqlite_db import get_db_session
 
 redis_client = RedisClient()
 
@@ -92,7 +93,7 @@ def get_player_by_name(player_name: str):
 
 
 @app.get("/online-players", response_model=List[OnlinePlayerResponse])
-def get_online_players(db: Session = Depends(get_db_session)):
+def get_online_players():
     """Get all online players with their position data"""
     # Check Redis for online players
     online_player_ids = redis_client.get_online_players()
@@ -102,23 +103,24 @@ def get_online_players(db: Session = Depends(get_db_session)):
         return []
 
     # Get player details from SQLite
-    players = db.query(Player).filter(Player.id.in_(online_player_ids)).all()
+    with get_db_session() as db:
+        players = db.query(Player).filter(Player.id.in_(online_player_ids)).all()
 
     # Combine with Redis data
     result = []
     for player in players:
-        position_data = redis_client.get_player_position(player.id)
+        # # position_data = redis_client.get_player_position(player.id)
 
-        # Get last ping time
-        last_ping_key = f"{redis_client.PLAYER_PREFIX}{player.id}:last_ping"
-        last_ping = redis_client.redis_client.get(last_ping_key)
+        # # Get last ping time
+        # last_ping_key = f"{redis_client.PLAYER_PREFIX}{player.id}:last_ping"
+        # last_ping = redis_client.redis_client.get(last_ping_key)
 
         result.append(
             OnlinePlayerResponse(
                 id=player.id,
                 username=player.username,
-                position=position_data,
-                last_ping=last_ping,
+                # position=position_data,
+                # last_ping=last_ping,
             )
         )
 

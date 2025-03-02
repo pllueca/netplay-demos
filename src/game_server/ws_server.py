@@ -1,27 +1,23 @@
 import asyncio
-
 import json
 
 from picows import (
-    ws_create_server,
     WSFrame,
-    WSTransport,
     WSListener,
     WSMsgType,
+    WSTransport,
     WSUpgradeRequest,
+    ws_create_server,
 )
 
-
+from config import WS_HOST, WS_PORT
 from src.common.entity import PlayerEntity
 from src.database.redis_db import RedisClient
-from config import WS_HOST, WS_PORT
-
 
 redis_client = RedisClient()
 
 
 class GameState:
-
     def __init__(self):
         self.last_id = 0
         self.players: dict[int, PlayerEntity] = {}

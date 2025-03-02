@@ -7,12 +7,12 @@ class Entity(BaseModel):
     id: int
 
 
-class CharacterEntity(Entity, PositionComponent):
+class CharacterEntity(Entity, PositionComponent, SerializePlayerJsonComponent):
     pass
 
 
-class PlayerEntity(CharacterEntity, SerializePlayerJsonComponent):
-    name: str
+class PlayerEntity(CharacterEntity):
+    pass
 
 
 class NPCEntity(CharacterEntity):

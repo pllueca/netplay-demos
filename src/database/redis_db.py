@@ -1,8 +1,10 @@
 import json
-import redis
 from datetime import datetime
-from config import REDIS_HOST, REDIS_PORT, REDIS_DB, REDIS_PASSWORD
 
+import redis
+
+from config import REDIS_DB, REDIS_HOST, REDIS_PASSWORD, REDIS_PORT
+from src.common.common_models import PositionData
 
 # Redis key prefixes
 PLAYER_PREFIX = "player:"
@@ -12,7 +14,6 @@ NUM_ONLINE_PLAYERS = "num_online_players"
 
 class RedisClient:
     def __init__(self):
-        # Create Redis connection
         self.redis_client = redis.Redis(
             host=REDIS_HOST,
             port=REDIS_PORT,
@@ -32,16 +33,26 @@ class RedisClient:
 
     def add_player_to_online(self, player_id: str):
         """Add player to the set of online players"""
-        # redis_client.sadd(ONLINE_PLAYERS_SET, player_id)
-        current_players = self.redis_client.get(NUM_ONLINE_PLAYERS) or "0"
-        self.redis_client.set(NUM_ONLINE_PLAYERS, int(current_players) + 1)
+        self.redis_client.sadd(ONLINE_PLAYERS_SET, player_id)
 
     def remove_player_from_online(self, player_id: str):
         """Remove player from the set of online players"""
-        # redis_client.srem(ONLINE_PLAYERS_SET, player_id)
-        self.redis_client.decr(NUM_ONLINE_PLAYERS)
+        self.redis_client.srem(ONLINE_PLAYERS_SET, player_id)
 
     def get_online_players(self):
         """Get all online players"""
-        # return redis_client.smembers(ONLINE_PLAYERS_SET)
-        return self.redis_client.get(NUM_ONLINE_PLAYERS)
+        return self.redis_client.smembers(ONLINE_PLAYERS_SET)
+
+    def save_player_position(
+        self,
+        player_id: str,
+        position_data: PositionData,
+    ):
+        """Save player position to Redis"""
+        key = f"{PLAYER_PREFIX}{player_id}:position"
+        position_data = {
+            "last_update": datetime.now().isoformat(),
+            "pos_x": position_data.pos_x,
+            "pos_y": position_data.pos_y,
+        }
+        self.redis_client.set(key, json.dumps(position_data))

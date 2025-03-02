@@ -2,14 +2,14 @@ import sys
 
 sys.path.append("/Users/pllueca/Code/netplay")
 import asyncio
-import uvicorn
 import logging
 from threading import Thread
 
-from config import API_HOST, API_PORT, WS_HOST, WS_PORT
-from api.http_server import app
+import uvicorn
 
-# from api.websocket_server import start_websocket_server
+from config import API_HOST, API_PORT, WS_HOST, WS_PORT
+from src.game_server.api.http_server import app
+from src.game_server.api.websocket_server import start_websocket_server
 
 # Configure logging
 logging.basicConfig(
@@ -33,10 +33,7 @@ async def main():
     fastapi_thread.start()
     logger.info(f"HTTP server started on http://{API_HOST}:{API_PORT}")
 
-    # Start WebSocket server in the main thread
-    # ws_server = await start_websocket_server(WS_HOST, WS_PORT)
-    #
-    # Keep the server running
+    _ws_server = await start_websocket_server(WS_HOST, WS_PORT)
     await asyncio.Future()
 
 
