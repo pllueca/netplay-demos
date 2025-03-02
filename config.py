@@ -16,12 +16,12 @@ REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", None)
 # API configuration
 API_HOST = os.getenv("API_HOST", "0.0.0.0")
 API_PORT = int(os.getenv("API_PORT", 8000))
-API_URL = f"http://{API_HOST}:{API_PORT}"
+API_REMOTE_URL = os.getenv("API_REMOTE_URL", f"http://{API_HOST}:{API_PORT}")
 
 # WebSocket configuration
 WS_HOST = os.getenv("WS_HOST", "0.0.0.0")
 WS_PORT = int(os.getenv("WS_PORT", 8001))
-WS_URL = f"ws://{WS_HOST}:{WS_PORT}"
+WS_REMOTE_URL = os.getenv("WS_REMOTE_URL", f"ws://{WS_HOST}:{WS_PORT}")
 
 # Player configuration
 PLAYER_TIMEOUT_SECONDS = int(os.getenv("PLAYER_TIMEOUT_SECONDS", 300))  # 5 minutes
