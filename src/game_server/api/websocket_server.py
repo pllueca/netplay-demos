@@ -1,7 +1,5 @@
 from typing import cast
-import asyncio
 import json
-import logging
 import websockets
 from websockets import WebSocketServerProtocol
 from datetime import datetime
@@ -17,12 +15,10 @@ from src.common.common_models import (
     PlayerDisconectedMessage,
 )
 from src.common.world import GameState
+from src.common.logging import logger
 
 redis_client = RedisClient()
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 # Connected clients
 connected_clients: dict[int, WebSocketServerProtocol] = {}
@@ -51,8 +47,6 @@ async def handle_message(websocket: WebSocketServerProtocol, player_id: int):
                             player_id,
                             position_update_message.position_data,
                         )
-                        # Position of player `player_id` updated
-                        # respond with the positions of all the other players
                         await broadcast_position_update(
                             player_id,
                             position_update_message,

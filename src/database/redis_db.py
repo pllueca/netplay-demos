@@ -39,7 +39,7 @@ class RedisClient:
         """Remove player from the set of online players"""
         self.redis_client.srem(ONLINE_PLAYERS_SET, player_id)
 
-    def get_online_players(self):
+    def get_online_players(self) -> set[str]:
         """Get all online players"""
         return self.redis_client.smembers(ONLINE_PLAYERS_SET)
 
@@ -47,7 +47,7 @@ class RedisClient:
         self,
         player_id: str,
         position_data: PositionData,
-    ):
+    ) -> None:
         """Save player position to Redis"""
         key = f"{PLAYER_PREFIX}{player_id}:position"
         position_data = {

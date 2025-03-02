@@ -10,6 +10,8 @@ from database.models import Player
 from database.redis_db import RedisClient
 from database.sqlite_db import get_db_session
 
+from common.logging import logger
+
 redis_client = RedisClient()
 
 app = FastAPI(title="Game Server API")
@@ -58,7 +60,7 @@ def create_player(player: PlayerCreate):
             db.add(db_player)
             db.commit()
             db.refresh(db_player)
-
+    logger.info(f"Created Player {db_player}")
     return db_player
 
 
@@ -134,8 +136,10 @@ def health_check():
     """Health check endpoint"""
     redis_status = "UP" if redis_client.is_redis_available() else "DOWN"
 
+    num_online_players = len(redis_client.get_online_players())
     return {
         "status": "UP",
         "redis": redis_status,
         "timestamp": datetime.now().isoformat(),
+        "online_players": num_online_players,
     }

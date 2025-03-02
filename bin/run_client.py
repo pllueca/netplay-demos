@@ -1,6 +1,10 @@
 import sys
+import os
+from pathlib import Path
 
-sys.path.append("/Users/pllueca/Code/netplay")
+src_path = (Path(os.path.dirname(__file__)) / "..").resolve()
+sys.path.append(str(src_path))
+
 
 import asyncio
 import requests
@@ -10,10 +14,7 @@ import json
 import datetime
 from config import API_REMOTE_URL, WS_REMOTE_URL
 import argparse
-import logging
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from src.common.logging import logger
 
 
 def parse_args():
@@ -32,7 +33,7 @@ def get_player_id(player_name: str) -> int:
 async def main():
     args = parse_args()
 
-    print(
+    logger.info(
         f"""urls:
 - api: {API_REMOTE_URL}
 - ws: {WS_REMOTE_URL}"""
@@ -42,7 +43,7 @@ async def main():
     try:
         player_id = get_player_id(args.player_name)
     except requests.exceptions.HTTPError as e:
-        print(f"Could not contact the game server, error: {e}")
+        logger.info(f"Could not contact the game server, error: {e}")
         sys.exit(1)
 
     try:
@@ -58,34 +59,6 @@ async def main():
             game_client = GameClient(player_id, args.player_name, websocket)
             await game_client.run()
 
-            # position = {"x": 0, "y": 0, "z": 0}
-
-            # while True:
-            #     # Update position (simulating movement)
-            #     position["x"] += 1
-            #     position["y"] += 0.5
-
-            #     # Send position update
-            #     await websocket.send(
-            #         json.dumps({"type": "position_update", "data": position})
-            #     )
-
-            #     # Send ping
-            #     await websocket.send(
-            #         json.dumps(
-            #             {"type": "ping", "timestamp": datetime.now().isoformat()}
-            #         )
-            #     )
-
-            #     # Receive messages
-            #     try:
-            #         message = await asyncio.wait_for(websocket.recv(), timeout=0.1)
-            #         logger.info(f"Received: {message}")
-            #     except asyncio.TimeoutError:
-            #         pass
-
-            #     # Wait before next update
-            #     await asyncio.sleep(1)
     except Exception as e:
         logger.error(f"WebSocket error: {e}")
 

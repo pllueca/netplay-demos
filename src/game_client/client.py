@@ -11,6 +11,7 @@ from src.common.common_models import (
 )
 from src.common.entity import PlayerEntity, NPCEntity, Entity
 from src.common.world import GameState
+from src.common.logging import logger
 
 # Game constants
 WIDTH, HEIGHT = 800, 600
@@ -20,13 +21,10 @@ RED = (255, 0, 0)
 PLAYER_SIZE = 50
 
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-
 class LocalGameState:
     player_id: int
     other_player_ids: set[int]
+    npc_ids: set[int]
 
     def __init__(self, player_id: int, username: str):
         self._state = GameState()
@@ -44,15 +42,19 @@ class LocalGameState:
         self.other_player_ids = set()
 
     def update_state_other_player(self, position_update: PositionUpdateMessage):
-        if position_update.player_id not in self.other_player_ids:
-            if position_update.player_id in self.entities:
-                raise ValueError("shpould not happen")
+        """Update a position of another player.
+
+        This player may or may have not been seen before."""
+        if position_update.player_id not in self.entities:
+            # havent seen this guy
+            logger.info(f"New player with id {position_update.player_id} joined")
             self.entities[position_update.player_id] = PlayerEntity(
                 id=position_update.player_id,
                 pos_x=0,
                 pos_y=0.0,
             )
-            self.npc_ids.add(position_update.player_id)
+
+        self.other_player_ids.add(position_update.player_id)
         self.entities[position_update.player_id].pos_x = (
             position_update.position_data.pos_x
         )
@@ -154,7 +156,6 @@ class GameClient:
                         position_data=self.game_state.player_position_data,
                     ),
                 )
-                # print("sending", state.model_dump_json())
                 await self.websocket.send(state.model_dump_json())
             except Exception as e:
                 raise
