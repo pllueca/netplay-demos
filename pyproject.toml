@@ -18,10 +18,5 @@ dependencies = [
     "requests>=2.32.3",
 ]
 
-
-[project.scripts]
-client = 'bin.run_client:main'
-# server = 'scripts/run_server:main'
-
 [tool.uv]
 package = true
