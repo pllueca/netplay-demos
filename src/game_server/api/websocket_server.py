@@ -1,3 +1,4 @@
+import asyncio
 from typing import cast
 import json
 import websockets
@@ -37,25 +38,23 @@ async def handle_message(websocket: WebSocketServerProtocol, player_id: int):
         async for message_str in websocket:
             try:
                 message = SocketMessagePlayerToServer.model_validate_json(message_str)
-                message_type = message.type
-                match message_type:
-                    case "position_update":
-                        position_update_message = cast(
-                            PositionUpdateMessage, message.data
-                        )
-                        redis_client.save_player_position(
-                            player_id,
-                            position_update_message.position_data,
-                        )
-                        await broadcast_position_update(
-                            player_id,
-                            position_update_message,
-                        )
-                    case _:
-                        logger.warning(f"Unknown message type: {message_type}")
-
             except json.JSONDecodeError:
                 logger.error(f"Invalid JSON message: {message}")
+                continue
+            message_type = message.type
+            match message_type:
+                case "position_update":
+                    position_update_message = cast(PositionUpdateMessage, message.data)
+                    redis_client.save_player_position(
+                        player_id,
+                        position_update_message.position_data,
+                    )
+                    await broadcast_position_update(
+                        player_id,
+                        position_update_message,
+                    )
+                case _:
+                    logger.warning(f"Unknown message type: {message_type}")
 
     except websockets.exceptions.ConnectionClosed:
         logger.info(f"Connection closed for player {player_id}")
@@ -130,6 +129,11 @@ async def broadcast_position_update(
     await broadcast_to_others(player_id, message.model_dump_json())
 
 
+async def broadcast_npc_position_updates():
+    """Message every connected player with the updates to npc around them"""
+    pass
+
+
 # Broadcast player connection to all other connected players
 async def broadcast_player_connect(player_id: int):
     with get_db_session() as db:
@@ -180,9 +184,16 @@ async def websocket_handler(websocket: WebSocketServerProtocol):
         await handle_message(websocket, player_id)
 
 
+async def periodic_logger():
+    while True:
+        logger.info("Periodic log message.")
+        await asyncio.sleep(10)  # Log every 10 seconds
+
+
 # Create WebSocket server
 async def start_websocket_server(host: str, port: int):
 
+    logger_task = asyncio.create_task(periodic_logger())
     server = await websockets.serve(websocket_handler, host, port)
     logger.info(f"WebSocket server started on ws://{host}:{port}")
     return server

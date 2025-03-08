@@ -3,10 +3,7 @@ import os
 from pathlib import Path
 
 src_path = (Path(os.path.dirname(__file__)) / "..").resolve()
-
-
 sys.path.append(str(src_path))
-print(src_path, sys.path)
 
 import asyncio
 import logging

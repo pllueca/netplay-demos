@@ -1,9 +1,16 @@
 import json
+from src.common.common_models import (
+    PositionData,
+)
 
 
 class PositionComponent:
     pos_x: float
     pos_y: float
+
+    def update_position(self, position: PositionData) -> None:
+        self.pos_x = position.pos_x
+        self.pos_y = position.pos_y
 
 
 class SerializePlayerJsonComponent:

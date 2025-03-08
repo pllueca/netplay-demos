@@ -24,7 +24,6 @@ PLAYER_SIZE = 50
 class LocalGameState:
     player_id: int
     other_player_ids: set[int]
-    npc_ids: set[int]
 
     def __init__(self, player_id: int, username: str):
         self._state = GameState()
@@ -38,7 +37,6 @@ class LocalGameState:
                 pos_y=0,
             )
         )
-        self.npc_ids = set()
         self.other_player_ids = set()
 
     def update_state_other_player(self, position_update: PositionUpdateMessage):
@@ -63,10 +61,7 @@ class LocalGameState:
         )
 
     def delete_player(self, player_id: int):
-        if player_id in self.other_player_ids:
-            del self.others[player_id]
-        if player_id in self.entities:
-            del self.entities[player_id]
+        self._state.delete_player(player_id)
 
     @property
     def entities(self) -> dict[int, Entity]:
@@ -147,18 +142,16 @@ class GameClient:
 
     async def send_state(self):
         """Broadcast updated player position to the server."""
-        if self.websocket:
-            try:
-                state = SocketMessagePlayerToServer(
-                    type="position_update",
-                    data=PositionUpdateMessage(
-                        player_id=self.player_id,
-                        position_data=self.game_state.player_position_data,
-                    ),
-                )
-                await self.websocket.send(state.model_dump_json())
-            except Exception as e:
-                raise
+        state = SocketMessagePlayerToServer(
+            type="position_update",
+            data=PositionUpdateMessage(
+                player_id=self.player_id,
+                position_data=self.game_state.player_position_data,
+            ),
+        )
+        await self.websocket.send(state.model_dump_json())
+
+        # TODO: implement server sending confirmation that the update is ok
 
     def handle_events(self):
         for event in pygame.event.get():
