@@ -38,6 +38,7 @@ class LocalGameState:
             )
         )
         self.other_player_ids = set()
+        self.npc_ids = set()
 
     def update_state_other_player(self, position_update: PositionUpdateMessage):
         """Update a position of another player.
