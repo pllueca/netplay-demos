@@ -19,14 +19,13 @@ from src.common.common_models import (
     NewPlayerConnectedMessage,
     PlayerDisconectedMessage,
 )
-from src.common.world import GameState
+from src.game_server.game import game_state
 from src.common.logging import logger
 
 redis_client = RedisClient()
 
 # Connected clients
 connected_clients: dict[str, WebSocketServerProtocol] = {}
-game_state = GameState()
 
 
 # Message handler
@@ -111,6 +110,13 @@ async def authenticate(
                 }
             )
         )
+
+        # Send map data
+        map_message = SocketMessagePlayerToServer(
+            type="map_data",
+            data=game_state.get_map_data(),
+        )
+        await websocket.send(map_message.model_dump_json())
 
         # Notify other players about this player connecting
         await broadcast_player_connect(player_id)
@@ -228,6 +234,9 @@ async def start_websocket_server(host: str, port: int):
 
     if not redis_client.is_redis_available():
         raise RuntimeError("Could not connect to redis server, aborting")
+
+    # Generate the map
+    game_state.generate_map(20, 20)
 
     # Create some npcs
     for _ in range(5):

@@ -1,8 +1,10 @@
 import random
+from typing import List
 import uuid
 from src.common.entity import PlayerEntity, NPCEntity, Entity
 
 from src.common.common_models import (
+    MapData,
     PositionData,
 )
 
@@ -11,6 +13,7 @@ class GameState:
     entities: dict[str, Entity]
     player_ids: set[str]
     npc_ids: set[str]
+    map: List[List[bool]]
 
     # World dimensions
     WORLD_WIDTH: int = 100
@@ -23,6 +26,18 @@ class GameState:
         self.entities = {}
         self.player_ids = set()
         self.npc_ids = set()
+        self.map = []
+
+    def generate_map(self, width: int, height: int, blocked_probability: float = 0.2):
+        self.map = [
+            [random.random() > blocked_probability for _ in range(width)]
+            for _ in range(height)
+        ]
+
+    def get_map_data(self) -> MapData:
+        return MapData(
+            width=len(self.map[0]), height=len(self.map), tiles=self.map
+        )
 
     def add_player(self, player: PlayerEntity):
         self.entities[player.id] = player

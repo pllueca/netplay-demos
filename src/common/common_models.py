@@ -2,6 +2,12 @@ from pydantic import BaseModel
 from typing import List
 
 
+class MapData(BaseModel):
+    width: int
+    height: int
+    tiles: List[List[bool]]
+
+
 class NpcData(BaseModel):
     id: str
     type: str
@@ -40,4 +46,5 @@ class SocketMessagePlayerToServer(BaseModel):
         | NewPlayerConnectedMessage
         | PlayerDisconectedMessage
         | List[NpcPositionUpdateMessage]
+        | MapData
     )

@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import List, Optional
 
 from fastapi import Depends, FastAPI, HTTPException
+from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -9,6 +10,7 @@ from sqlalchemy.orm import Session
 from src.database.models import Player
 from src.database.redis_db import RedisClient
 from src.database.sqlite_db import get_db_session
+from src.game_server.game import game_state
 
 from src.common.logging import logger
 
@@ -129,6 +131,22 @@ def get_online_players():
         )
 
     return result
+
+
+@app.get("/map", response_class=HTMLResponse)
+def get_map():
+    """Return a simple html view of the map"""
+    html_content = "<html><body><table>"
+    for row in game_state.map:
+        html_content += "<tr>"
+        for tile in row:
+            color = "white" if tile else "black"
+            html_content += (
+                f'<td style="width: 20px; height: 20px; background-color: {color};"></td>'
+            )
+        html_content += "</tr>"
+    html_content += "</table></body></html>"
+    return HTMLResponse(content=html_content, status_code=200)
 
 
 # Health check endpoint
