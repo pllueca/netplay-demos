@@ -1,3 +1,5 @@
+import random
+import uuid
 from src.common.entity import PlayerEntity, NPCEntity, Entity
 
 from src.common.common_models import (
@@ -6,13 +8,16 @@ from src.common.common_models import (
 
 
 class GameState:
-    entities: dict[int, Entity]
-    player_ids: set[int]
-    npc_ids: set[int]
+    entities: dict[str, Entity]
+    player_ids: set[str]
+    npc_ids: set[str]
 
     # World dimensions
     WORLD_WIDTH: int = 100
     WORLD_HEIGHT: int = 100
+
+    # game constants
+    NPC_UPDATES_PER_SECOND = 30
 
     def __init__(self):
         self.entities = {}
@@ -23,14 +28,18 @@ class GameState:
         self.entities[player.id] = player
         self.player_ids.add(player.id)
 
-    def delete_player(self, player_id: int) -> None:
+    def add_npc(self, npc: NPCEntity) -> None:
+        self.entities[npc.id] = npc
+        self.npc_ids.add(npc.id)
+
+    def delete_player(self, player_id: str) -> None:
         if player_id not in self.entities or player_id not in self.player_ids:
             raise KeyError()
         del self.entities[player_id]
         self.player_ids.remove(player_id)
 
     def update_entity_position(
-        self, entity_id: int, new_position: PositionData
+        self, entity_id: str, new_position: PositionData
     ) -> None:
         if entity_id not in self.entities:
             raise KeyError()
@@ -41,3 +50,12 @@ class GameState:
         ):
             raise ValueError("invalid position")
         self.entities[entity_id].update_position(new_position)
+
+    def game_tick(self) -> None:
+        """execute 1 world update.
+
+        * Npcs move"""
+        for npc_id in self.npc_ids:
+            npc_entity = self.entities[npc_id]
+            npc_entity.pos_x += random.randint(-1, 1)
+            npc_entity.pos_y += random.randint(-1, 1)

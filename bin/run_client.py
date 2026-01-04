@@ -23,11 +23,11 @@ def parse_args():
     return parser.parse_args()
 
 
-def get_player_id(player_name: str) -> int:
+def get_player_id(player_name: str) -> str:
     """Get a new or existing player id from the http api"""
     r = requests.post(f"{API_REMOTE_URL}/players", json={"username": player_name})
     r.raise_for_status()
-    return int(r.json()["id"])
+    return r.json()["id"]
 
 
 async def main():
@@ -61,6 +61,7 @@ async def main():
 
     except Exception as e:
         logger.error(f"WebSocket error: {e}")
+        raise
 
 
 if __name__ == "__main__":

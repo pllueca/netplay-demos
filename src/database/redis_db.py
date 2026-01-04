@@ -1,15 +1,19 @@
 import json
 from datetime import datetime
+from typing import List
+import uuid
 
 import redis
 
 from config import REDIS_DB, REDIS_HOST, REDIS_PASSWORD, REDIS_PORT
-from src.common.common_models import PositionData
+from src.common.common_models import NpcData, PositionData
 
 # Redis key prefixes
 PLAYER_PREFIX = "player:"
 ONLINE_PLAYERS_SET = "online_players"
 NUM_ONLINE_PLAYERS = "num_online_players"
+NPC_PREFIX = "npc:"
+NPCS_SET = "npcs"
 
 
 class RedisClient:
@@ -56,3 +60,39 @@ class RedisClient:
             "pos_y": position_data.pos_y,
         }
         self.redis_client.set(key, json.dumps(position_data))
+
+    def create_npc(self, npc_type: str, pos_x: float, pos_y: float) -> NpcData:
+        """Create a new NPC and save it to Redis"""
+        npc_id = str(uuid.uuid4())
+        key = f"{NPC_PREFIX}{npc_id}"
+        npc_data = NpcData(id=npc_id, type=npc_type, pos_x=pos_x, pos_y=pos_y)
+        self.redis_client.set(key, npc_data.model_dump_json())
+        self.redis_client.sadd(NPCS_SET, npc_id)
+        return npc_data
+
+    def save_npc_position(self, npc_id: str, pos_x: float, pos_y: float):
+        """Save NPC position to Redis"""
+        key = f"{NPC_PREFIX}{npc_id}"
+        npc_data = self.get_npc(npc_id)
+        if npc_data:
+            npc_data.pos_x = pos_x
+            npc_data.pos_y = pos_y
+            self.redis_client.set(key, npc_data.model_dump_json())
+
+    def get_npc(self, npc_id: str) -> NpcData | None:
+        """Get NPC data from Redis"""
+        key = f"{NPC_PREFIX}{npc_id}"
+        npc_data = self.redis_client.get(key)
+        if npc_data:
+            return NpcData.model_validate_json(npc_data)
+        return None
+
+    def get_npcs(self) -> List[NpcData]:
+        """Get all NPCs from Redis"""
+        npc_ids = self.redis_client.smembers(NPCS_SET)
+        npcs = []
+        for npc_id in npc_ids:
+            npc_data = self.get_npc(npc_id)
+            if npc_data:
+                npcs.append(npc_data)
+        return npcs

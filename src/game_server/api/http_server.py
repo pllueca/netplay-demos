@@ -6,13 +6,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from database.models import Player
-from database.redis_db import RedisClient
-from database.sqlite_db import get_db_session
+from src.database.models import Player
+from src.database.redis_db import RedisClient
+from src.database.sqlite_db import get_db_session
 
-from common.logging import logger
+from src.common.logging import logger
 
 redis_client = RedisClient()
+if not redis_client.is_redis_available():
+    raise RuntimeError("Could not connect to redis server")
 
 app = FastAPI(title="Game Server API")
 
@@ -32,14 +34,14 @@ class PlayerCreate(BaseModel):
 
 
 class PlayerResponse(BaseModel):
-    id: int
+    id: str
     username: str
     created_at: datetime
     last_seen: datetime
 
 
 class OnlinePlayerResponse(BaseModel):
-    id: int
+    id: str
     username: str
     position: Optional[dict] = None
     last_ping: Optional[str] = None
@@ -73,7 +75,7 @@ def get_players():
 
 
 @app.get("/players/{player_id}", response_model=PlayerResponse)
-def get_player(player_id: int):
+def get_player(player_id: str):
     """Get player by ID"""
     with get_db_session() as db:
         player = db.query(Player).filter(Player.id == player_id).first()

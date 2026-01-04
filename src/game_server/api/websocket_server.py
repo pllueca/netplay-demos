@@ -1,15 +1,19 @@
 import asyncio
-from typing import cast
+from typing import cast, List
 import json
 import websockets
 from websockets import WebSocketServerProtocol
 from datetime import datetime
+import time
+
 
 from src.database.redis_db import RedisClient
 from src.database.sqlite_db import get_db_session
 from src.database.models import Player
-from src.common.entity import PlayerEntity
+from src.common.entity import NPCEntity, PlayerEntity
 from src.common.common_models import (
+    NpcPositionUpdateMessage,
+    PositionData,
     SocketMessagePlayerToServer,
     PositionUpdateMessage,
     NewPlayerConnectedMessage,
@@ -20,14 +24,13 @@ from src.common.logging import logger
 
 redis_client = RedisClient()
 
-
 # Connected clients
-connected_clients: dict[int, WebSocketServerProtocol] = {}
+connected_clients: dict[str, WebSocketServerProtocol] = {}
 game_state = GameState()
 
 
 # Message handler
-async def handle_message(websocket: WebSocketServerProtocol, player_id: int):
+async def handle_message(websocket: WebSocketServerProtocol, player_id: str):
     """Handle a message from a client.
 
     types:
@@ -71,7 +74,7 @@ async def handle_message(websocket: WebSocketServerProtocol, player_id: int):
 # Authentication handler
 async def authenticate(
     websocket: WebSocketServerProtocol,
-) -> int | None:
+) -> str | None:
     try:
         # Expect authentication message with player ID
         auth_message = await websocket.recv()
@@ -120,7 +123,8 @@ async def authenticate(
 
 # Broadcast position update to all other connected players
 async def broadcast_position_update(
-    player_id: int, position_data_message: PositionUpdateMessage
+    player_id: str,
+    position_data_message: PositionUpdateMessage,
 ):
     message = SocketMessagePlayerToServer(
         type="player_position",
@@ -131,11 +135,27 @@ async def broadcast_position_update(
 
 async def broadcast_npc_position_updates():
     """Message every connected player with the updates to npc around them"""
-    pass
+    npc_position_updates: List[NpcPositionUpdateMessage] = []
+    for npc_id in game_state.npc_ids:
+        npc_entity = game_state.entities[npc_id]
+        npc_position_updates.append(
+            NpcPositionUpdateMessage(
+                npc_id=npc_entity.id,
+                position_data=PositionData(
+                    pos_x=npc_entity.pos_x, pos_y=npc_entity.pos_y
+                ),
+            )
+        )
+
+    message = SocketMessagePlayerToServer(
+        type="npc_position_updates",
+        data=npc_position_updates,
+    )
+    await broadcast_to_others(None, message.model_dump_json())
 
 
 # Broadcast player connection to all other connected players
-async def broadcast_player_connect(player_id: int):
+async def broadcast_player_connect(player_id: str):
     with get_db_session() as db:
         player = db.query(Player).filter(Player.id == player_id).first()
         if not player:
@@ -155,7 +175,7 @@ async def broadcast_player_connect(player_id: int):
 
 
 # Broadcast player disconnection to all other connected players
-async def broadcast_player_disconnect(player_id: int):
+async def broadcast_player_disconnect(player_id: str):
     message = SocketMessagePlayerToServer(
         type="player_disconnected",
         data=PlayerDisconectedMessage(player_id=player_id),
@@ -164,9 +184,9 @@ async def broadcast_player_disconnect(player_id: int):
 
 
 # Helper to broadcast to all connected clients except the sender
-async def broadcast_to_others(sender_id: int, message: str):
+async def broadcast_to_others(sender_id: str | None, message: str):
     for player_id, websocket in connected_clients.items():
-        if player_id != sender_id:
+        if sender_id is None or player_id != sender_id:
             try:
                 await websocket.send(message)
             except websockets.exceptions.ConnectionClosed:
@@ -180,20 +200,44 @@ async def websocket_handler(websocket: WebSocketServerProtocol):
 
     if player_id is not None:
         # create player in the game state
-        game_state.add_player(PlayerEntity(id=player_id, pos_x=0, pos_y=0))
+        game_state.add_player(
+            PlayerEntity(id=player_id, player_id=player_id, pos_x=0, pos_y=0)
+        )
         await handle_message(websocket, player_id)
 
 
 async def periodic_logger():
     while True:
-        logger.info("Periodic log message.")
+        logger.info("Server healthy; Connected players: %s", len(game_state.player_ids))
         await asyncio.sleep(10)  # Log every 10 seconds
 
 
-# Create WebSocket server
+async def update_npcs():
+    """Update the game state every second"""
+    while True:
+        game_state.game_tick()
+        for npc_id in game_state.npc_ids:
+            npc = game_state.entities[npc_id]
+            redis_client.save_npc_position(npc.id, npc.pos_x, npc.pos_y)
+        await broadcast_npc_position_updates()
+        await asyncio.sleep(1)
+
+
+# Entrypoint of the websocket server.
 async def start_websocket_server(host: str, port: int):
 
+    if not redis_client.is_redis_available():
+        raise RuntimeError("Could not connect to redis server, aborting")
+
+    # Create some npcs
+    for _ in range(5):
+        npc = redis_client.create_npc("enemy", 10, 10)
+        game_state.add_npc(
+            NPCEntity(id=npc.id, type=npc.type, pos_x=npc.pos_x, pos_y=npc.pos_y)
+        )
+
     logger_task = asyncio.create_task(periodic_logger())
+    npc_task = asyncio.create_task(update_npcs())
     server = await websockets.serve(websocket_handler, host, port)
     logger.info(f"WebSocket server started on ws://{host}:{port}")
     return server
