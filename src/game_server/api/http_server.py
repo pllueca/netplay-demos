@@ -141,9 +141,7 @@ def get_map():
         html_content += "<tr>"
         for tile in row:
             color = "white" if tile else "black"
-            html_content += (
-                f'<td style="width: 20px; height: 20px; background-color: {color};"></td>'
-            )
+            html_content += f'<td style="width: 20px; height: 20px; background-color: {color};"></td>'
         html_content += "</tr>"
     html_content += "</table></body></html>"
     return HTMLResponse(content=html_content, status_code=200)

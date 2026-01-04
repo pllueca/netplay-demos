@@ -1,4 +1,3 @@
-import json
 from datetime import datetime
 from typing import List
 import uuid
@@ -23,7 +22,7 @@ class RedisClient:
             port=REDIS_PORT,
             db=REDIS_DB,
             password=REDIS_PASSWORD,
-            decode_responses=True,
+            decode_responses=False,
         )
 
         print("connected to redis server")
@@ -59,14 +58,14 @@ class RedisClient:
             "pos_x": position_data.pos_x,
             "pos_y": position_data.pos_y,
         }
-        self.redis_client.set(key, json.dumps(position_data))
+        self.redis_client.set(key, str(position_data))
 
     def create_npc(self, npc_type: str, pos_x: float, pos_y: float) -> NpcData:
         """Create a new NPC and save it to Redis"""
         npc_id = str(uuid.uuid4())
         key = f"{NPC_PREFIX}{npc_id}"
         npc_data = NpcData(id=npc_id, type=npc_type, pos_x=pos_x, pos_y=pos_y)
-        self.redis_client.set(key, npc_data.model_dump_json())
+        self.redis_client.set(key, npc_data.SerializeToString())
         self.redis_client.sadd(NPCS_SET, npc_id)
         return npc_data
 
@@ -77,14 +76,16 @@ class RedisClient:
         if npc_data:
             npc_data.pos_x = pos_x
             npc_data.pos_y = pos_y
-            self.redis_client.set(key, npc_data.model_dump_json())
+            self.redis_client.set(key, npc_data.SerializeToString())
 
     def get_npc(self, npc_id: str) -> NpcData | None:
         """Get NPC data from Redis"""
         key = f"{NPC_PREFIX}{npc_id}"
-        npc_data = self.redis_client.get(key)
-        if npc_data:
-            return NpcData.model_validate_json(npc_data)
+        npc_data_str = self.redis_client.get(key)
+        if npc_data_str:
+            npc_data = NpcData()
+            npc_data.ParseFromString(npc_data_str)
+            return npc_data
         return None
 
     def get_npcs(self) -> List[NpcData]:

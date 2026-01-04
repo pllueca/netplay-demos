@@ -49,11 +49,11 @@ async def main():
     try:
         async with websockets.connect(WS_REMOTE_URL) as websocket:
             # Send authentication
-            await websocket.send(json.dumps({"player_id": player_id}))
+            # await websocket.send(json.dumps({"player_id": player_id}))
 
-            # Receive welcome message
-            welcome = await websocket.recv()
-            logger.info(f"Received: {welcome}")
+            # # Receive welcome message
+            # welcome = await websocket.recv()
+            # logger.info(f"Received: {welcome}")
 
             # socket and http server reachable, initialize pygame
             game_client = GameClient(player_id, args.player_name, websocket)

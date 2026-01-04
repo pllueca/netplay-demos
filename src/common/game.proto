@@ -1,0 +1,57 @@
+syntax = "proto3";
+
+message PositionData {
+  float pos_x = 1;
+  float pos_y = 2;
+}
+
+message NpcData {
+  string id = 1;
+  string type = 2;
+  float pos_x = 3;
+  float pos_y = 4;
+}
+
+message PositionUpdateMessage {
+  string player_id = 1;
+  PositionData position_data = 2;
+}
+
+message NpcPositionUpdateMessage {
+  string npc_id = 1;
+  PositionData position_data = 2;
+}
+
+message NewPlayerConnectedMessage {
+  string player_id = 1;
+  string username = 2;
+}
+
+message PlayerAuthMessage {
+  string player_id = 1;
+}
+
+message PlayerDisconectedMessage {
+  string player_id = 1;
+}
+
+message TileRow {
+  repeated bool tiles = 1;
+}
+
+message MapData {
+  int32 width = 1;
+  int32 height = 2;
+  repeated TileRow rows = 3;
+}
+
+message SocketMessage {
+  oneof data {
+    PositionUpdateMessage position_update = 1;
+    NewPlayerConnectedMessage new_player_connected = 2;
+    PlayerDisconectedMessage player_disconnected = 3;
+    NpcPositionUpdateMessage npc_position_update = 4;
+    MapData map_data = 5;
+    PlayerAuthMessage player_auth = 6;
+  }
+}

@@ -6,6 +6,7 @@ from src.common.entity import PlayerEntity, NPCEntity, Entity
 from src.common.common_models import (
     MapData,
     PositionData,
+    TileRow,
 )
 
 
@@ -36,7 +37,9 @@ class GameState:
 
     def get_map_data(self) -> MapData:
         return MapData(
-            width=len(self.map[0]), height=len(self.map), tiles=self.map
+            width=len(self.map[0]),
+            height=len(self.map),
+            rows=[TileRow(tiles=row) for row in self.map],
         )
 
     def add_player(self, player: PlayerEntity):

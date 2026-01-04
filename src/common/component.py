@@ -39,4 +39,3 @@ class SerializeNPCJsonComponent:
 
     def to_json(self) -> str:
         return json.dumps(self.to_json_dict())
-

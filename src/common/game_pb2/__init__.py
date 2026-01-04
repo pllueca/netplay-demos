@@ -1,4 +1,4 @@
-from src.common.game_pb2 import (
+from .game_pb2 import (
     MapData,
     NpcPositionUpdateMessage,
     PositionData,

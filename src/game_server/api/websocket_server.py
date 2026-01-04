@@ -1,24 +1,22 @@
 import asyncio
 from typing import cast, List
-import json
 import websockets
 from websockets import WebSocketServerProtocol
 from datetime import datetime
-import time
 
-
+from src.common.common_models import (
+    MapData,
+    NpcPositionUpdateMessage,
+    PlayerDisconectedMessage,
+    PositionData,
+    SocketMessage,
+    PositionUpdateMessage,
+    NewPlayerConnectedMessage,
+)
 from src.database.redis_db import RedisClient
 from src.database.sqlite_db import get_db_session
 from src.database.models import Player
 from src.common.entity import NPCEntity, PlayerEntity
-from src.common.common_models import (
-    NpcPositionUpdateMessage,
-    PositionData,
-    SocketMessagePlayerToServer,
-    PositionUpdateMessage,
-    NewPlayerConnectedMessage,
-    PlayerDisconectedMessage,
-)
 from src.game_server.game import game_state
 from src.common.logging import logger
 
@@ -38,15 +36,13 @@ async def handle_message(websocket: WebSocketServerProtocol, player_id: str):
     """
     try:
         async for message_str in websocket:
-            try:
-                message = SocketMessagePlayerToServer.model_validate_json(message_str)
-            except json.JSONDecodeError:
-                logger.error(f"Invalid JSON message: {message}")
-                continue
-            message_type = message.type
+            message = SocketMessage()
+            message.ParseFromString(message_str)
+
+            message_type = message.WhichOneof("data")
             match message_type:
                 case "position_update":
-                    position_update_message = cast(PositionUpdateMessage, message.data)
+                    position_update_message = message.position_update
                     redis_client.save_player_position(
                         player_id,
                         position_update_message.position_data,
@@ -77,18 +73,20 @@ async def authenticate(
     try:
         # Expect authentication message with player ID
         auth_message = await websocket.recv()
-        auth_data = json.loads(auth_message)
+        auth_data = SocketMessage()
+        logger.info(auth_message)
+        auth_data.ParseFromString(auth_message)
 
-        player_id = auth_data.get("player_id")
+        player_id = auth_data.player_auth.player_id
         if not player_id:
-            await websocket.send(json.dumps({"error": "Missing player_id"}))
+            # await websocket.send(json.dumps({"error": "Missing player_id"}))
             return None
 
         # Verify player exists in database
         with get_db_session() as db:
             player = db.query(Player).filter(Player.id == player_id).first()
             if not player:
-                await websocket.send(json.dumps({"error": "Player not found"}))
+                # await websocket.send(json.dumps({"error": "Player not found"}))
                 return None
 
             # Update last_seen
@@ -101,29 +99,27 @@ async def authenticate(
         redis_client.add_player_to_online(player_id)
 
         # Send welcome message
-        await websocket.send(
-            json.dumps(
-                {
-                    "type": "welcome",
-                    "message": f"Welcome, {username}!",
-                    "player_id": player_id,
-                }
-            )
-        )
+        # await websocket.send(
+        #     json.dumps(
+        #         {
+        #             "type": "welcome",
+        #             "message": f"Welcome, {username}!",
+        #             "player_id": player_id,
+        #         }
+        #     )
+        # )
 
         # Send map data
-        map_message = SocketMessagePlayerToServer(
-            type="map_data",
-            data=game_state.get_map_data(),
-        )
-        await websocket.send(map_message.model_dump_json())
+        map_data = game_state.get_map_data()
+        map_message = SocketMessage(map_data=map_data)
+        await websocket.send(map_message.SerializeToString())
 
         # Notify other players about this player connecting
         await broadcast_player_connect(player_id)
 
         return player_id
 
-    except (json.JSONDecodeError, websockets.exceptions.ConnectionClosed):
+    except websockets.exceptions.ConnectionClosed:
         return None
 
 
@@ -132,32 +128,20 @@ async def broadcast_position_update(
     player_id: str,
     position_data_message: PositionUpdateMessage,
 ):
-    message = SocketMessagePlayerToServer(
-        type="player_position",
-        data=position_data_message,
-    )
-    await broadcast_to_others(player_id, message.model_dump_json())
+    message = SocketMessage(position_update=position_data_message)
+    await broadcast_to_others(player_id, message.SerializeToString())
 
 
 async def broadcast_npc_position_updates():
     """Message every connected player with the updates to npc around them"""
-    npc_position_updates: List[NpcPositionUpdateMessage] = []
     for npc_id in game_state.npc_ids:
         npc_entity = game_state.entities[npc_id]
-        npc_position_updates.append(
-            NpcPositionUpdateMessage(
-                npc_id=npc_entity.id,
-                position_data=PositionData(
-                    pos_x=npc_entity.pos_x, pos_y=npc_entity.pos_y
-                ),
-            )
+        npc_position_update = NpcPositionUpdateMessage(
+            npc_id=npc_entity.id,
+            position_data=PositionData(pos_x=npc_entity.pos_x, pos_y=npc_entity.pos_y),
         )
-
-    message = SocketMessagePlayerToServer(
-        type="npc_position_updates",
-        data=npc_position_updates,
-    )
-    await broadcast_to_others(None, message.model_dump_json())
+        message = SocketMessage(npc_position_update=npc_position_update)
+        await broadcast_to_others(None, message.SerializeToString())
 
 
 # Broadcast player connection to all other connected players
@@ -169,24 +153,22 @@ async def broadcast_player_connect(player_id: str):
 
         username = player.username
 
-    message = SocketMessagePlayerToServer(
-        type="player_connected",
-        data=NewPlayerConnectedMessage(
+    message = SocketMessage(
+        new_player_connected=NewPlayerConnectedMessage(
             player_id=player_id,
             username=username,
-        ),
+        )
     )
-
-    await broadcast_to_others(player_id, message.model_dump_json())
+    await broadcast_to_others(player_id, message.SerializeToString())
 
 
 # Broadcast player disconnection to all other connected players
 async def broadcast_player_disconnect(player_id: str):
-    message = SocketMessagePlayerToServer(
-        type="player_disconnected",
-        data=PlayerDisconectedMessage(player_id=player_id),
+    message = SocketMessage(
+        player_disconnected=PlayerDisconectedMessage(player_id=player_id)
     )
-    await broadcast_to_others(player_id, message.model_dump_json())
+
+    await broadcast_to_others(player_id, message.SerializeToString())
 
 
 # Helper to broadcast to all connected clients except the sender
@@ -231,7 +213,6 @@ async def update_npcs():
 
 # Entrypoint of the websocket server.
 async def start_websocket_server(host: str, port: int):
-
     if not redis_client.is_redis_available():
         raise RuntimeError("Could not connect to redis server, aborting")
 
